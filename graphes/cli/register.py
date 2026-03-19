@@ -1,0 +1,54 @@
+# graphes/cli/register.py
+# This module registers CLI commands based on specifications defined in `cli_definitions`.
+from graphes.cli.specs import cli_definitions
+
+#==============================#
+# Register domain and commands #
+#==============================#
+def register(subparsers, cmd_name):
+    f"""
+    Register '{cmd_name}' domain commands.
+
+    Usage:
+      graphes {cmd_name} [-h|...]
+    """
+
+    spec = cli_definitions[cmd_name]
+
+    # Register Level 1 parser
+    # >> graphes cmd_name [-h|...]
+    parser = subparsers.add_parser(cmd_name, help=spec['help'])
+
+    # Nested command (e.g., graphes config index)
+    if 'commands' in spec:
+        subcmd_cmd_name = parser.add_subparsers(dest=f"{cmd_name}_cmd", metavar="<command>", required=True,
+            help=f"<{cmd_name}> subcommands. Use \"graphes {cmd_name} <command> -h\" for options.")
+
+        for name, sub_spec in spec['commands'].items():
+            p = subcmd_cmd_name.add_parser(name, help=sub_spec['help'])
+
+            for arg_name in sub_spec.get('common_args', []):
+                arg = spec['common_args'][arg_name]
+                p.add_argument(*arg['flags'], **arg['kwargs'])
+
+            for arg in sub_spec.get('args', []):
+                p.add_argument(*arg['flags'], **arg['kwargs'])
+
+            p.set_defaults(
+                func=sub_spec['func'],
+                requires_es=sub_spec.get('requires_es', True),
+            )
+        return
+
+    # Flat command (e.g., graphes test)
+    for arg_name in spec.get('common_args_order', []):
+        arg = spec['common_args'][arg_name]
+        parser.add_argument(*arg['flags'], **arg['kwargs'])
+
+    for arg in spec.get('args', []):
+        parser.add_argument(*arg['flags'], **arg['kwargs'])
+
+    parser.set_defaults(
+        func=spec['func'],
+        requires_es=spec.get('requires_es', True),
+    )

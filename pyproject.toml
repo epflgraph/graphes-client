@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graphes-client"
+version = "0.1.0"
+description = "EPFL Graph ES Client"
+requires-python = ">=3.10"
+dependencies = [
+    "ipython",
+    "tqdm",
+    "loguru",
+    "rich",
+    "pydantic>=2,<3",
+    "numpy",
+    "pandas",
+    "tabulate",
+    "pyyaml",
+    "elasticsearch>=8,<9",
+    "elastic-transport>=8,<9",
+    "flatten-dict"
+]
+
+[project.scripts]
+graphes = "graphes.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["graphes*"]
