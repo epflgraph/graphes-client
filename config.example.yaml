@@ -1,0 +1,37 @@
+#=======================#
+# GraphES Configuration #
+#=======================#
+
+# Index environments
+environments:
+
+  # Environment: test
+  test_env:
+    host_address: 127.0.0.1
+    port: 9200
+    username: something
+    password: something
+
+  # Environment: staging
+  stag_env:
+    host_address: 127.0.0.1
+    port: 9201
+    username: something
+    password: something
+
+  # Environment: production
+  prod_env:
+    host_address: 127.0.0.1
+    port: 9202
+    username: something
+    password: something
+
+  # Environment: some other
+  some_other_env:
+    host_address: 127.0.0.1
+    port: 9203
+    username: something
+    password: something
+
+# Default environment to use when not specified in the command line
+default_env: test_env
