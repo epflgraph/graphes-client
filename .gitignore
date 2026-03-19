@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Project specific files
+.DS_Store
+.venv*
+config.yaml
+docker-publish.sh
+docker-build.sh
