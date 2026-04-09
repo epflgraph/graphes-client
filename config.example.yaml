@@ -9,29 +9,29 @@ environments:
   test_env:
     host_address: 127.0.0.1
     port: 9200
-    username: something
-    password: something
+    username: <YOUR_USERNAME>
+    password: <YOUR_PASSWORD>
 
   # Environment: staging
   stag_env:
     host_address: 127.0.0.1
     port: 9201
-    username: something
-    password: something
+    username: <YOUR_USERNAME>
+    password: <YOUR_PASSWORD>
 
   # Environment: production
   prod_env:
     host_address: 127.0.0.1
     port: 9202
-    username: something
-    password: something
+    username: <YOUR_USERNAME>
+    password: <YOUR_PASSWORD>
 
   # Environment: some other
   some_other_env:
     host_address: 127.0.0.1
     port: 9203
-    username: something
-    password: something
+    username: <YOUR_USERNAME>
+    password: <YOUR_PASSWORD>
 
 # Default environment to use when not specified in the command line
 default_env: test_env
