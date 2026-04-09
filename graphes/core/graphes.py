@@ -27,7 +27,7 @@ from graphes.core.config import GraphESConfig, GraphESConfigError
 from elasticsearch import Elasticsearch as ElasticSearchEngine, helpers
 from elasticsearch import exceptions as es_exceptions
 from loguru import logger as sysmsg
-from urllib.parse import quote
+# from urllib.parse import quote
 from flatten_dict import flatten
 from datetime import datetime
 from tqdm import tqdm
@@ -497,15 +497,6 @@ class GraphES():
         Initialize the ElasticSearch engine (no SSL) based on the server name provided.
         """
 
-        # # Check if the server name is in the global configuration
-        # if f'{engine_name}_env' not in glbcfg.settings['elasticsearch']:
-        #     raise ValueError(
-        #         f"Could not find configuration for Elasticsearch server '{engine_name}' in global config."
-        #     )
-
-        # # Load parameters
-        # params = glbcfg.settings['elasticsearch'][f'{engine_name}_env']
-
         env = self.cfg.get_env(engine_name)
         params = {
             "host_address": env.host_address,
@@ -515,22 +506,27 @@ class GraphES():
             "password": env.password,
         }
 
-        # Build connection URL (HTTP only, no SSL)
-        if "password" in params and params["password"]:
-            es_hosts = f"https://{params['username']}:{quote(params['password'])}@{params['hostname']}:{params['port']}"
-        elif "username" in params and params["username"]:
-            es_hosts = f"https://{params['username']}@{params['hostname']}:{params['port']}"
-        else:
-            es_hosts = f"https://{params['hostname']}:{params['port']}"
+        # Build connection URL without embedding credentials
+        es_hosts = f"https://{params['hostname']}:{params['port']}"
+
+        # Build client kwargs
+        es_kwargs = {
+            "hosts": [es_hosts],
+            "http_compress": True,
+            "verify_certs": False,  # use_ssl
+            "ca_certs": '',         # set CA path here if/when needed
+            "request_timeout": 3600,
+        }
+
+        # Pass credentials separately instead of inline in URL
+        if "username" in params and params["username"]:
+            if "password" in params and params["password"]:
+                es_kwargs["basic_auth"] = (params["username"], params["password"])
+            else:
+                es_kwargs["basic_auth"] = (params["username"], "")
 
         # Initialize Elasticsearch engine
-        engine = ElasticSearchEngine(
-            hosts           = [es_hosts],
-            http_compress   = True,
-            verify_certs    = False, # use_ssl,
-            ca_certs        = '', # glbcfg.settings['elasticsearch']['graph_engine_test']['cert_file'] if use_ssl else '',
-            request_timeout = 3600
-        )
+        engine = ElasticSearchEngine(**es_kwargs)
 
         # Return parameters and engine instance
         return params, engine
