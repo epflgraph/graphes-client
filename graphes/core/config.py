@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -10,6 +11,64 @@ from yaml import safe_load
 
 class GraphESConfigError(ValueError):
     pass
+
+
+def _parse_dotenv_assignment(line: str) -> tuple[str, str] | None:
+    raw = line.strip()
+    if not raw or raw.startswith("#"):
+        return None
+    if raw.startswith("export "):
+        raw = raw[len("export ") :].lstrip()
+    if "=" not in raw:
+        return None
+    key, value = raw.split("=", 1)
+    key = key.strip()
+    if not key:
+        return None
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        value = value[1:-1]
+    return key, value
+
+
+def _find_dotenv_file() -> Optional[Path]:
+    cwd = Path.cwd()
+    for candidate_dir in (cwd, *cwd.parents):
+        candidate = candidate_dir / ".env"
+        if candidate.exists():
+            return candidate
+    pkg_root = Path(__file__).resolve().parents[2]
+    candidate = pkg_root / ".env"
+    if candidate.exists():
+        return candidate
+    docker_candidate = Path("/app/.env")
+    if docker_candidate.exists():
+        return docker_candidate
+    return None
+
+
+@lru_cache(maxsize=1)
+def _resolve_dotenv_override() -> Optional[Path]:
+    override = os.getenv("GRAPHES_CONFIG")
+    if override:
+        return Path(override).expanduser().resolve()
+
+    dotenv = _find_dotenv_file()
+    if not dotenv:
+        return None
+
+    try:
+        with dotenv.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                parsed = _parse_dotenv_assignment(line)
+                if parsed and parsed[0] == "GRAPHES_CONFIG":
+                    value = parsed[1]
+                    if value:
+                        return Path(value).expanduser().resolve()
+    except OSError:
+        return None
+
+    return None
 
 
 @dataclass(frozen=True)
@@ -56,18 +115,18 @@ class GraphESConfig:
     def default_path(cls) -> Path:
         # Backward-compatible single-path accessor.
         # Prefer explicit env path when provided.
-        env_path = os.getenv("GRAPHES_CONFIG")
-        if env_path:
-            return Path(env_path).expanduser().resolve()
+        override = _resolve_dotenv_override()
+        if override:
+            return override
         return Path.cwd() / "config.yaml"
 
     @classmethod
     def default_paths(cls) -> list[Path]:
         candidates: list[Path] = []
 
-        env_path = os.getenv("GRAPHES_CONFIG")
-        if env_path:
-            candidates.append(Path(env_path).expanduser())
+        override = _resolve_dotenv_override()
+        if override:
+            candidates.append(override)
 
         # Most common local workflow
         candidates.append(Path.cwd() / "config.yaml")
