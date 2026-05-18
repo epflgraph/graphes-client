@@ -1267,6 +1267,62 @@ class GraphES():
             "acknowledged": bool(resp.get("acknowledged", False)) if isinstance(resp, dict) else None,
         }
 
+    #----------------------------------#
+    # Method: Search nodes in an index #
+    #----------------------------------#
+    def search(self, query: str, index_name: str, engine_name: str | None = None, node_types: list[str] | str | None = None, limit: int = 10) -> list[dict]:
+        """
+        Search documents matching the query string from an index in the ElasticSearch engine.
+        """
+        engine = engine_name or self.cfg.default_env
+
+        def build_fields(lang):
+            return [
+                f'name.{lang}',
+                f'name.{lang}.keyword',
+                f'name.{lang}.raw',
+                f'short_description.{lang}',
+                f'long_description.{lang}^0.001',
+            ]
+
+        # Build text match clauses
+        en_clause = {'multi_match': {'fields': build_fields('en'), 'query': query}}
+        fr_clause = {'multi_match': {'fields': build_fields('fr'), 'query': query}}
+
+        # EN and FR are dis_max'd to avoid double-boosting words spelled the same in both languages
+        text_clause = {'dis_max': {'queries': [en_clause, fr_clause]}}
+
+        # Build id clause
+        id_clause = {'term': {'doc_id.keyword': {'boost': 10, 'value': query}}}
+
+        # Build filter clause
+        filter_clause = []
+        if node_types is not None:
+            if isinstance(node_types, str):
+                node_types = [node_types]
+            filter_clause.append({'terms': {'doc_type.keyword': node_types}})
+
+        # Build final query
+        q = {
+            'size': limit,
+            'query': {
+                'function_score': {
+                    'score_mode': 'multiply',
+                    'functions': [{'field_value_factor': {'field': 'degree_score'}}],
+                    'query': {
+                        'bool': {
+                            'filter': filter_clause,
+                            'should': [id_clause, text_clause],
+                            'minimum_should_match': 1,
+                        },
+                    },
+                },
+            },
+        }
+
+        response = self.execute_query(engine, index_name, q)
+        return [hit['_source'] for hit in response.get('hits', {}).get('hits', [])]
+
     #-------------------------------------#
     # Method: Execute a query on an index #
     #-------------------------------------#
